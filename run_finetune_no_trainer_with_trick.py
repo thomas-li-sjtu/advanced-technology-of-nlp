@@ -10,6 +10,7 @@ import numpy as np
 import logging
 from distutils.util import strtobool
 from sklearn.metrics import accuracy_score, f1_score
+import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -163,7 +164,7 @@ for epoch in range(args.num_train_epochs):
     train_loss = 0.0
     logger.info('\n------------epoch:{}------------'.format(epoch))
     last = time.time()
-    for step, batch_data in enumerate(train_dataloader):
+    for step, batch_data in enumerate(tqdm.tqdm(train_dataloader)):
         model.train()
         batch_data = {k: v.to(device) for k, v in batch_data.items()}
 
@@ -260,7 +261,7 @@ for epoch in range(args.num_train_epochs):
 
     model.eval()
     with torch.no_grad():
-        for step, batch_data in enumerate(eval_dataloader):
+        for step, batch_data in enumerate(tqdm.tqdm(eval_dataloader)):
             for key in batch_data.keys():
                 batch_data[key] = batch_data[key].to(device)
             labels = batch_data['labels']
@@ -302,8 +303,8 @@ os.system("cp %s %s" % (vocab_file_dir, args.output_model_dir))
 os.system("cp %s %s" % (os.path.join(args.pretrained_model_dir, 'config.json'), args.output_model_dir))
 
 
-# 上传模型
-from utils.upload_model import upload
-
-model_name = args.tar_name_prefix
-upload(args.output_model_dir, model_name)
+# # 上传模型
+# from utils.upload_model import upload
+#
+# model_name = args.tar_name_prefix
+# upload(args.output_model_dir, model_name)

@@ -10,10 +10,11 @@ import numpy as np
 import logging
 from distutils.util import strtobool
 from sklearn.metrics import accuracy_score, f1_score
+import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.cuda.amp import autocast
+from torch.cuda.amp import autocast  # 只有torch 1.6以上才有
 from torch.utils.data import DataLoader
 from datasets import load_dataset
 from transformers import BertModel, BertConfig, BertTokenizer, DataCollatorWithPadding, AdamW, \
@@ -93,6 +94,7 @@ tokenized_datasets.rename_column("label", "labels")
 train_dataloader = DataLoader(
     tokenized_datasets["train"], shuffle=True, batch_size=args.batch_size, collate_fn=data_collator
 )
+# collate_fn:用来处理不同情况下的输入dataset的封装
 eval_dataloader = DataLoader(
     tokenized_datasets["validation"], batch_size=args.batch_size, collate_fn=data_collator
 )
@@ -105,7 +107,7 @@ model = CustomModel(args.pretrained_model_dir, model_param_config).to(device)
 
 # 优化器定义
 param_optimizer = list(model.named_parameters())
-no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']  # 规定哪些参数不进行衰减
 optimizer_grouped_parameters = [
     {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
     {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
@@ -130,13 +132,17 @@ avg_loss = 0.
 scaler = None
 if args.use_fp16:
     scaler = torch.cuda.amp.GradScaler()
+    # 自动混合精度
+    # 某些上下文中torch.FloatTensor有优势，在某些上下文中torch.HalfTensor有优势
+    # torch.HalfTensor的优势：存储小、计算快、更好的利用CUDA设备的Tensor Core。训练的时候可以减少显存的占用，增加batchsize，训练速度更快
+    # torch.HalfTensor的劣势：数值范围小（容易Overflow / Underflow）、存在舍入误差
 
 best_f1 = 0.
 for epoch in range(args.num_train_epochs):
     train_loss = 0.0
     logger.info('\n------------epoch:{}------------'.format(epoch))
     last = time.time()
-    for step, batch_data in enumerate(train_dataloader):
+    for step, batch_data in enumerate(tqdm.tqdm(train_dataloader)):
         model.train()
         batch_data = {k: v.to(device) for k, v in batch_data.items()}
 
@@ -184,7 +190,7 @@ for epoch in range(args.num_train_epochs):
 
     model.eval()
     with torch.no_grad():
-        for step, batch_data in enumerate(eval_dataloader):
+        for step, batch_data in enumerate(tqdm.tqdm(eval_dataloader)):
             for key in batch_data.keys():
                 batch_data[key] = batch_data[key].to(device)
             labels = batch_data['labels']
