@@ -1,3 +1,15 @@
+自然语言处理前沿技术——授课部分材料
+
+```bash
+-data
+-metrics
+-pretrained_model
+  -bert
+  -pretrained_bert_on_oppo_100epoch
+-utils
+```
+
+
 # 1. 环境准备
 1. 建议使用miniconda创建虚拟环境：https://docs.conda.io/en/latest/miniconda.html
 2. 创建虚拟环境oppo: conda create -n oppo python=3.7
